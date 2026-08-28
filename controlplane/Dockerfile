@@ -9,18 +9,20 @@ RUN apt-get update && apt-get install -y \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Python deps
+# Python deps first (layer cache)
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy source
 COPY . .
 
-# Create __init__ files
-RUN find . -type d -exec touch {}/__init__.py \;
+# Ensure all packages are importable
+ENV PYTHONPATH=/app
+
+# Create data dir for SQLite
+RUN mkdir -p /app/data
 
 EXPOSE 8000
 
-ENV PYTHONPATH=/app
-
-CMD ["uvicorn", "gateway.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Use $PORT if set (Railway injects it), else default 8000
+CMD uvicorn gateway.main:app --host 0.0.0.0 --port ${PORT:-8000}

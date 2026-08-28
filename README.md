@@ -1,10 +1,11 @@
-# ControlPlane — Prototype Testing Guide
+# ControlPlane — Responsible AI Gateway
 
 ## What's Running
 - **Backend:** http://localhost:8000 (FastAPI + real Groq API)
 - **Dashboard:** http://localhost:3000 (React)
-- **LLM:** `llama3-8b-8192` via Groq (free tier)
+- **LLM:** `openai/gpt-oss-20b` via Groq (free tier)
 - **Evidence:** DuckDuckGo (free, no key) + built-in knowledge base
+- **Database:** SQLite locally → PostgreSQL in Docker (auto-detected)
 - **No paid APIs. No fake data. Everything is real.**
 
 ---
