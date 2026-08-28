@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: controlplane-api
+    runtime: python
+    rootDir: controlplane
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn gateway.main:app --host 0.0.0.0 --port $PORT
+    plan: free
+    envVars:
+      - key: PYTHONPATH
+        value: /opt/render/project/src/controlplane
+      - key: GROQ_API_KEY
+        sync: false          # you enter this manually in Render dashboard
+      - key: DEFAULT_MODEL
+        value: openai/gpt-oss-20b
+      - key: APP_ENV
+        value: production
+      - key: DEBUG
+        value: false
+    healthCheckPath: /health
