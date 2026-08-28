@@ -24,7 +24,10 @@ logger = logging.getLogger("controlplane")
 async def lifespan(app: FastAPI):
     """Startup / shutdown lifecycle hooks."""
     logger.info("ControlPlane starting up...")
-    # Future: initialize DB connection pool, load ML models
+    # Initialise database (SQLite locally, PostgreSQL in Docker)
+    from telemetry.db import init_db, USE_POSTGRES
+    await init_db()
+    logger.info(f"Database ready | backend={'postgresql' if USE_POSTGRES else 'sqlite'}")
     yield
     logger.info("ControlPlane shutting down...")
 
@@ -55,9 +58,12 @@ app.include_router(dashboard_router, prefix="/api")
 
 @app.get("/health")
 async def health():
+    from telemetry.db import USE_POSTGRES, _DB_PATH
     return {
         "status": "healthy",
         "service": "ControlPlane",
+        "db_backend": "postgresql" if USE_POSTGRES else "sqlite",
+        "db_location": "postgres" if USE_POSTGRES else str(_DB_PATH),
         "timestamp": time.time(),
     }
 

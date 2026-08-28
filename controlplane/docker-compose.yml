@@ -1,36 +1,62 @@
 version: "3.9"
 
+# ControlPlane — Full Production Stack
+# Usage:
+#   1. Copy controlplane/.env.example to controlplane/.env and add your GROQ_API_KEY
+#   2. docker compose up -d
+#   3. Open http://localhost:3000
+
 services:
+
+  # ── FastAPI Gateway ────────────────────────────────────────────────────────
   gateway:
     build: .
     ports:
       - "8000:8000"
+    env_file: .env
     environment:
       - DATABASE_URL=postgresql+asyncpg://controlplane:controlplane@postgres:5432/controlplane
       - REDIS_URL=redis://redis:6379/0
       - CELERY_BROKER_URL=redis://redis:6379/1
       - CELERY_RESULT_BACKEND=redis://redis:6379/2
-      - OPENAI_API_KEY=${OPENAI_API_KEY:-sk-placeholder}
       - DASHBOARD_ORIGIN=http://localhost:3000
     depends_on:
-      - postgres
-      - redis
-    volumes:
-      - .:/app
-    command: uvicorn gateway.main:app --host 0.0.0.0 --port 8000 --reload
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    command: uvicorn gateway.main:app --host 0.0.0.0 --port 8000 --workers 2
 
+  # ── Celery Worker (Async Deep Checks) ──────────────────────────────────────
   worker:
     build: .
+    env_file: .env
     environment:
       - DATABASE_URL=postgresql+asyncpg://controlplane:controlplane@postgres:5432/controlplane
       - REDIS_URL=redis://redis:6379/0
       - CELERY_BROKER_URL=redis://redis:6379/1
       - CELERY_RESULT_BACKEND=redis://redis:6379/2
-      - OPENAI_API_KEY=${OPENAI_API_KEY:-sk-placeholder}
     depends_on:
       - redis
+      - postgres
+    restart: unless-stopped
     command: celery -A tasks.deep_verify.celery_app worker --loglevel=info --concurrency=4
 
+  # ── React Dashboard ────────────────────────────────────────────────────────
+  dashboard:
+    build:
+      context: ./dashboard
+      dockerfile: Dockerfile
+    ports:
+      - "3000:80"
+    environment:
+      - VITE_API_BASE=http://localhost:8000
+    depends_on:
+      - gateway
+    restart: unless-stopped
+
+  # ── PostgreSQL ─────────────────────────────────────────────────────────────
   postgres:
     image: postgres:16-alpine
     environment:
@@ -41,22 +67,27 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U controlplane"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
 
+  # ── Redis (Celery broker + cache) ──────────────────────────────────────────
   redis:
     image: redis:7-alpine
     ports:
       - "6379:6379"
-
-  dashboard:
-    build:
-      context: ./dashboard
-      dockerfile: Dockerfile
-    ports:
-      - "3000:3000"
-    environment:
-      - VITE_API_BASE=http://localhost:8000
-    depends_on:
-      - gateway
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
 
 volumes:
   postgres_data:
+  redis_data:

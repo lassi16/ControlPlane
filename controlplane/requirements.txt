@@ -1,3 +1,7 @@
+# ControlPlane — Python Dependencies
+# Install: pip install -r requirements.txt
+
+# ── Core API ───────────────────────────────────────────────────────────────
 fastapi==0.111.0
 uvicorn[standard]==0.30.1
 httpx==0.27.0
@@ -5,28 +9,29 @@ python-dotenv==1.0.1
 pydantic==2.7.4
 pydantic-settings==2.3.4
 
-# Database
-sqlalchemy==2.0.31
-asyncpg==0.29.0
-alembic==1.13.2
+# ── Database ──────────────────────────────────────────────────────────────
+aiosqlite==0.22.1          # Local dev (SQLite, zero config)
+asyncpg==0.29.0            # Production (PostgreSQL, via Docker)
+sqlalchemy==2.0.31         # ORM / migrations helper
+alembic==1.13.2            # DB migrations
+psycopg2-binary==2.9.9     # Postgres sync driver (Alembic)
 
-# Redis / Queue
+# ── Queue / Async ─────────────────────────────────────────────────────────
 redis==5.0.7
 celery==5.4.0
 
-# ML / NLP
-transformers==4.42.4
-torch==2.3.1
-sentence-transformers==3.0.1
-spacy==3.7.5
+# ── Search (DuckDuckGo — free evidence retrieval) ─────────────────────────
+ddgs>=9.0.0
 
-# Utilities
-sympy==1.13.0
-scipy==1.14.0
+# ── Utilities ─────────────────────────────────────────────────────────────
 regex==2024.5.15
-psycopg2-binary==2.9.9
 
-# Dev / Testing
+# ── Dev / Testing ─────────────────────────────────────────────────────────
 pytest==8.2.2
 pytest-asyncio==0.23.7
-httpx==0.27.0
+
+# ── Week 2 (ML Models — uncomment when ready) ────────────────────────────
+# transformers==4.42.4
+# torch==2.3.1
+# sentence-transformers==3.0.1
+# spacy==3.7.5
