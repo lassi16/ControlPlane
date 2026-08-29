@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { LayoutDashboard, Zap, DollarSign, Shield, Users, Settings, Activity, Terminal } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { LayoutDashboard, Zap, DollarSign, Shield, Users, Activity, Terminal } from 'lucide-react'
 import Overview from './pages/Overview'
 import EventLog from './pages/EventLog'
 import EventDetail from './pages/EventDetail'
@@ -7,6 +7,7 @@ import HallucinationRate from './pages/HallucinationRate'
 import CostAnalytics from './pages/CostAnalytics'
 import ReviewQueue from './pages/ReviewQueue'
 import Playground from './pages/Playground'
+import { startKeepAlive, getOverview, getEvents, getHallucinationMetrics, getCostMetrics } from './api'
 
 const NAV = [
   { id: 'playground',   label: 'Live Demo',        icon: Terminal },
@@ -21,6 +22,17 @@ const NAV = [
 export default function App() {
   const [page, setPage]         = useState('playground')
   const [selectedEvent, setSelectedEvent] = useState(null)
+
+  useEffect(() => {
+    // Wake up Render immediately + keep alive every 10 min
+    startKeepAlive()
+    // Prefetch common pages so navigation is instant
+    getOverview().catch(() => {})
+    getEvents({ limit: 20 }).catch(() => {})
+    getHallucinationMetrics().catch(() => {})
+    getCostMetrics().catch(() => {})
+  }, [])
+
 
   function navigate(id) { setPage(id); setSelectedEvent(null) }
   function openEvent(ev) { setSelectedEvent(ev); setPage('event-detail') }
@@ -81,7 +93,7 @@ export default function App() {
           ))}
         </div>
         <div style={{ padding: '12px 18px', borderTop: '1px solid var(--border)', fontSize: 11, color: 'var(--text-muted)' }}>
-          v0.1.0 · AIC 2026
+          v0.2.0 · AIC 2026
         </div>
       </nav>
 

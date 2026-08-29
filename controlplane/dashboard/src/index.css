@@ -1,5 +1,44 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
 
+/* ── Skeleton loaders ── */
+@keyframes shimmer {
+  0%   { background-position: -600px 0; }
+  100% { background-position:  600px 0; }
+}
+.skeleton {
+  background: linear-gradient(90deg,
+    #1a1a1a 25%, #242424 50%, #1a1a1a 75%
+  );
+  background-size: 600px 100%;
+  animation: shimmer 1.4s infinite;
+  border-radius: 6px;
+}
+.skeleton-text  { height: 14px; width: 100%; margin-bottom: 10px; }
+.skeleton-title { height: 20px; width: 40%; margin-bottom: 16px; }
+.skeleton-card  {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  box-shadow: var(--shadow-card);
+}
+.skeleton-metric {
+  height: 110px;
+  border-radius: var(--radius-lg);
+  background: linear-gradient(90deg, #111 25%, #1a1a1a 50%, #111 75%);
+  background-size: 600px 100%;
+  animation: shimmer 1.4s infinite;
+  border: 1px solid var(--border);
+}
+.skeleton-row {
+  height: 44px;
+  border-radius: 4px;
+  margin-bottom: 2px;
+  background: linear-gradient(90deg, #111 25%, #181818 50%, #111 75%);
+  background-size: 600px 100%;
+  animation: shimmer 1.4s infinite;
+}
+
 /* ═══════════════════════════════════════════════════════════════
    ControlPlane — Pure Black × Vibrant Green × Neutral Grey
    Backgrounds: pure charcoal, zero green tint

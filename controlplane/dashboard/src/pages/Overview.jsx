@@ -23,7 +23,21 @@ export default function Overview({ onEventClick }) {
     return () => clearInterval(t)
   }, [])
 
-  if (loading) return <div className="spinner" />
+  if (loading) return (
+    <div>
+      <div className="metrics-grid">
+        {[...Array(6)].map((_, i) => <div key={i} className="skeleton-metric" />)}
+      </div>
+      <div className="charts-row">
+        <div className="skeleton-card"><div className="skeleton skeleton-title" /><div className="skeleton" style={{ height: 180 }} /></div>
+        <div className="skeleton-card"><div className="skeleton skeleton-title" /><div className="skeleton" style={{ height: 180 }} /></div>
+      </div>
+      <div className="skeleton-card">
+        <div className="skeleton skeleton-title" />
+        {[...Array(6)].map((_, i) => <div key={i} className="skeleton-row" />)}
+      </div>
+    </div>
+  )
   if (!data)   return <div className="empty-state">Failed to load data. Is the gateway running?</div>
 
   const actionDist = [
