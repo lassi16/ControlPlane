@@ -1,4 +1,7 @@
-# ControlPlane — End-to-End Implementation Plan
+# ControlPlane — Implementation Plan & Architecture
+
+> **Current Status: v0.2.0** | Deployed on Render (backend) + Vercel (frontend)
+> Last updated: August 2026
 
 ---
 
@@ -13,24 +16,34 @@ The system deploys as a **proxy** — applications point their LLM calls at Cont
 
 ---
 
-## 2. Tech Stack
+## 2. Tech Stack — Actual (v0.2.0)
 
-| Layer | Technology | Rationale |
+| Layer | Technology | Status | Notes |
+|---|---|---|---|
+| **Gateway / API** | Python + FastAPI | ✅ Live | Deployed on Render free tier |
+| **LLM** | Groq `openai/gpt-oss-20b` | ✅ Live | Free tier, no cost |
+| **Database (local)** | SQLite (aiosqlite) | ✅ Live | Zero-config, auto-detected |
+| **Database (prod)** | PostgreSQL (asyncpg) | ✅ Live | Render free Postgres |
+| **Queue / async** | Background threads (Celery-ready) | ⚠️ Partial | Threads work; Celery needs Redis |
+| **Toxicity check** | Keyword heuristics | ⚠️ Partial | Week 2: replace with `toxic-bert` |
+| **NLI classification** | Regex heuristics | ⚠️ Partial | Week 2: replace with DeBERTa |
+| **Claim extraction** | Groq LLM (free) | ✅ Live | `openai/gpt-oss-20b` |
+| **Evidence retrieval** | DuckDuckGo `ddgs` + local KB | ✅ Live | Free, no key needed |
+| **Math verification** | Python `sympy` | ✅ Live | Deterministic |
+| **Dashboard** | React + Vite + Recharts | ✅ Live | Deployed on Vercel |
+| **Deployment** | Render (API) + Vercel (frontend) | ✅ Live | Both free tier |
+| **Docker** | docker-compose.yml ready | ⚠️ Ready | Needs Docker Desktop installed |
+
+### Original Plan vs Actual
+
+| Planned | Actual | Reason |
 |---|---|---|
-| **Gateway / API** | Python + FastAPI | Async-native, fast prototyping, rich ML ecosystem |
-| **Queue / async jobs** | Celery + Redis | Decouples inline path from async deep verification |
-| **Database** | PostgreSQL | Stores telemetry events, baselines, policies, review queue |
-| **Cache** | Redis | Session state, budget tracking, baseline lookups |
-| **Inline classifiers** | HuggingFace Transformers (local) | Toxicity, safety, NER — small models, no API cost |
-| **Claim extraction** | Fine-tuned T5-small or Flan-T5 (local) | Cheap, fast, well-studied for structured extraction |
-| **NLI classification** | DeBERTa-v3-base-mnli (local) | State-of-art NLI, ~400MB, runs in milliseconds on GPU |
-| **Evidence retrieval** | Google Search API / Bing Search API | External factual evidence; deterministic tools for math/code |
-| **Math verification** | Python `sympy` | Symbolic math engine, deterministic, free |
-| **Code verification** | Sandboxed `subprocess` / Docker | Isolated code execution |
-| **Dashboard** | React + Recharts + TailwindCSS | Operator-facing fleet monitoring UI |
-| **Deployment** | Docker Compose (dev) → Kubernetes (prod) | Standard containerised deployment |
+| HuggingFace models (local) | Groq API (free) | No GPU; Groq is faster and free |
+| Google/Bing Search API | DuckDuckGo `ddgs` | Paid APIs removed; ddgs is free |
+| Redis cache | Thread-based fallback | Redis needs Docker; threads work fine |
+| PostgreSQL from day 1 | SQLite → PostgreSQL | SQLite for local; Postgres on deploy |
+| Kubernetes (prod) | Render + Vercel | Overkill for prototype; free platforms simpler |
 
----
 
 ## 3. Project Structure
 
@@ -748,21 +761,68 @@ pytest tests/test_end_to_end.py     # Full pipeline integration tests
 
 ---
 
-## 8. Build Order (What to Build First)
+## 8. Build Order — Actual Progress
+
+### Completed ✅
 
 ```
-Week 1:  Phase 1 — Gateway proxy works, forwards requests, logs events
-Week 2:  Phase 2 — Fast checks inline, PII auto-redacted, toxicity caught
-Week 3:  Phase 3 — Deep verification async, claims extracted, NLI running
-Week 4:  Phase 4 — Policy engine, data lineage, cost tracking
-Week 5:  Phase 5 — Dashboard, baselines, trend detection
-Week 6:  Polish — Demo flows, tests, presentation prep
+Phase 1 — Gateway Proxy
+  ✔ FastAPI proxy forwards to Groq free-tier LLM
+  ✔ OpenAI-compatible API contract
+  ✔ Pre-check: PII scan, injection detection, query classifier, impact estimate
+  ✔ PostgreSQL + SQLite dual persistence (auto-detected)
+  ✔ Event logging with full metadata
+
+Phase 2 — Fast Checks
+  ✔ Tier 1: regex credential/PII detection in response
+  ✔ Tier 2: keyword toxicity (heuristic), topic drift
+  ✔ Impact re-scorer (medical/financial keywords)
+  ✔ Confidence signal extraction
+  ✔ Policy engine: Most-Severe-Wins (allow/annotate/redact/block)
+
+Phase 3 — Deep Verification
+  ✔ Claim extraction via Groq (async background thread)
+  ✔ Evidence retrieval: DuckDuckGo + local knowledge base
+  ✔ NLI heuristic classifier (regex-based)
+  ✔ Risk score model
+  ✔ Retroactive alerts (contradicted claims → review queue)
+
+Phase 5 — Dashboard
+  ✔ Overview: fleet KPIs, time series, donut chart
+  ✔ Event Log: searchable, filterable, paginated
+  ✔ Event Detail: claims, evidence, risk summary
+  ✔ Hallucination Monitor: contradiction rate chart
+  ✔ Cost Analytics: spend by model
+  ✔ Data Safety: PII incident view
+  ✔ Review Queue: human reviewer interface
+  ✔ Live Demo: interactive chat playground
+
+Deployment
+  ✔ Render (backend) — https://controlplane-api.onrender.com
+  ✔ Vercel (frontend) — https://controlplane-dashboard.vercel.app
+  ✔ GitHub — https://github.com/lassi16/ControlPlane
 ```
 
-For a hackathon / compressed timeline, build in this priority order:
-1. Gateway proxy (must-have — everything depends on it)
-2. Tier 1 pattern matching (fast win — catches secrets/PII immediately)
-3. Claim extraction + NLI (the technical differentiator)
-4. Policy engine (connects checks to actions)
-5. Dashboard with event log (makes it visible and presentable)
-6. Everything else (baselines, trends, bias testing — demonstrate conceptually)
+### Week 2 (Next) ⏳
+
+```
+  □ Swap keyword toxicity → unitary/toxic-bert
+  □ Swap regex NLI → cross-encoder/nli-deberta-v3-small
+  □ API key authentication (per-tenant)
+  □ Redis + Celery (true async workers)
+  □ Rate limiting
+```
+
+### Week 3–4 (Planned) 🔮
+
+```
+  □ Nginx reverse proxy + SSL certificate
+  □ Prometheus + Grafana metrics
+  □ Statistical significance on baselines
+  □ Webhook retroactive notifications
+  □ Policy configuration UI
+```
+
+---
+
+*ControlPlane v0.2.0 — AIC 2026 | lassi16/ControlPlane*
