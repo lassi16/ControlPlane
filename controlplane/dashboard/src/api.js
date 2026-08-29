@@ -1,8 +1,19 @@
 import axios from 'axios'
 
+// Production fallback: if VITE_API_BASE not set and we're not on localhost,
+// use the Render backend URL automatically
+const isLocal = typeof window !== 'undefined' &&
+  (window.location.hostname === 'localhost' ||
+   window.location.hostname === '127.0.0.1')
+
+const RENDER_URL = 'https://controlplane-api.onrender.com'
+
+const BASE_URL = import.meta.env.VITE_API_BASE ||
+  (isLocal ? 'http://localhost:8000' : RENDER_URL)
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE || '',
-  timeout: 15000,
+  baseURL: BASE_URL,
+  timeout: 30000, // 30s — Render free tier can be slow on wake-up
 })
 
 export const getOverview    = () => api.get('/api/dashboard/overview').then(r => r.data)
