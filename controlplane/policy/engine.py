@@ -12,6 +12,7 @@ def evaluate_policy(
     application_id: str,
     actual_cost: float = 0.0,
     deep_results: Optional[Dict] = None,
+    lineage: Optional[Dict] = None,
 ) -> Dict[str, Any]:
     """
     Evaluate all check results and return a policy decision.
@@ -24,6 +25,18 @@ def evaluate_policy(
     resp_action, resp_annotations = _responsibility_policy(tier1_results, tier2_results, impact)
     actions.append(resp_action)
     annotations.extend(resp_annotations)
+
+    # --- Data lineage policy ---
+    lineage_action = "allow"
+    if lineage and lineage.get("leaked"):
+        severity = lineage.get("severity", "low")
+        if severity in ("critical", "high"):
+            lineage_action = "redact"
+            annotations.append(f"DATA_LEAKAGE: {lineage['summary']} (severity={severity})")
+        elif severity == "medium":
+            lineage_action = "annotate"
+            annotations.append(f"DATA_LEAKAGE: {lineage['summary']}")
+    actions.append(lineage_action)
 
     # --- Performance policy (deep checks) ---
     perf_action = "allow"
@@ -42,12 +55,14 @@ def evaluate_policy(
     return {
         "action": final_action,
         "responsibility_action": resp_action,
+        "lineage_action": lineage_action,
         "performance_action": perf_action,
         "cost_action": cost_action,
         "impact": impact,
         "annotations": annotations,
         "reasoning": _build_reasoning(final_action, tier1_results, tier2_results, impact),
     }
+
 
 
 def _responsibility_policy(tier1: Dict, tier2: Dict, impact: str) -> tuple:
@@ -68,24 +83,10 @@ def _responsibility_policy(tier1: Dict, tier2: Dict, impact: str) -> tuple:
             annotations.append("PII_DETECTED: Redacting sensitive data from response.")
             return "redact", annotations
 
-    # Toxicity
-    toxicity = tier2.get("toxicity_score", 0)
-    if toxicity > 0.7:
-        annotations.append(f"HIGH_TOXICITY: score={toxicity:.2f}")
-        return "block", annotations
-    elif toxicity > 0.4:
-        annotations.append(f"MODERATE_TOXICITY: score={toxicity:.2f}")
-        return "annotate", annotations
 
-    # Safety risk
-    safety = tier2.get("safety_score", 0)
-    if safety > 0.5:
-        annotations.append(f"SAFETY_RISK: score={safety:.2f}")
-        return "block", annotations
-
-    # Topic drift
+    # Topic drift — high threshold to avoid false positives on math/code
     drift = tier2.get("topic_drift", 0)
-    if drift > 0.75:
+    if drift > 0.90:
         annotations.append(f"TOPIC_DRIFT: response may be off-topic (drift={drift:.2f})")
         return "annotate", annotations
 
@@ -135,7 +136,4 @@ def _build_reasoning(action: str, tier1: Dict, tier2: Dict, impact: str) -> str:
         parts.append("credentials_in_response=true")
     if tier1.get("pii_detected"):
         parts.append(f"pii_detections={tier1.get('detection_count', 0)}")
-    tox = tier2.get("toxicity_score", 0)
-    if tox > 0:
-        parts.append(f"toxicity={tox:.2f}")
     return " | ".join(parts)

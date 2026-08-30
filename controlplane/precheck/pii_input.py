@@ -15,6 +15,9 @@ PII_PATTERNS = {
     "phone_us": re.compile(
         r"\b(?:\+?1[\s.\-]?)?\(?\d{3}\)?[\s.\-]?\d{3}[\s.\-]?\d{4}\b"
     ),
+    "phone_intl": re.compile(
+        r"(?<!\d)(?:\+?\d{1,3}[\s.\-]?)?\d{7,15}(?!\d)"
+    ),
     "credit_card": re.compile(
         r"\b(?:4\d{3}|5[1-5]\d{2}|6(?:011|5\d{2})|3[47]\d{2}|3(?:0[0-5]|[68]\d)\d{2})"
         r"[\s\-]?\d{4}[\s\-]?\d{4}[\s\-]?\d{4}\b"
@@ -37,6 +40,7 @@ PII_PATTERNS = {
 SEVERITY_MAP = {
     "email": "medium",
     "phone_us": "medium",
+    "phone_intl": "medium",
     "credit_card": "high",
     "ssn": "high",
     "openai_key": "critical",

@@ -52,21 +52,30 @@ export default function Playground() {
       //    pick up the new event immediately on next visit ─────────────
       invalidateCache()
 
-    } catch {
+    } catch (err) {
+      const errMsg = err.response?.data?.detail?.message || 'Error contacting gateway. Check that the backend is online.'
+      const errCp = err.response?.data?.detail ? {
+        policy_action: 'block',
+        reason: err.response.data.detail.error,
+        event_id: err.response.data.detail.request_id,
+      } : null
+
       setMessages(prev => [...prev, {
         role: 'assistant',
-        content: 'Error contacting gateway. Check that the backend is online.',
+        content: errMsg,
         error: true,
+        meta: errCp
       }])
+      if (errCp) setLastMeta(errCp)
     } finally {
       setLoading(false)
     }
   }
 
   const actionColor = (a) => ({
-    allow: '#00e87a', annotate: '#39ff9a', warn: '#f59e0b',
-    redact: '#f97316', block: '#ef4444', escalate: '#9ca3af',
-  })[a] || '#888'
+    allow: '#059669', annotate: '#2563eb', warn: '#d97706',
+    redact: '#ea580c', block: '#dc2626', escalate: '#6b7280',
+  })[a] || '#6b7280'
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 16, height: 'calc(100vh - 120px)' }}>
@@ -79,7 +88,7 @@ export default function Playground() {
           <div>
             <span style={{ fontSize: 13, fontWeight: 600 }}>Live Gateway Test</span>
             <span style={{ marginLeft: 10, fontSize: 11, color: 'var(--accent)', fontWeight: 500 }}>
-              ● Real Groq API (openai/gpt-oss-20b)
+              ● Groq API (openai/gpt-oss-20b)
             </span>
           </div>
           {messages.length > 0 && (
@@ -121,12 +130,12 @@ export default function Playground() {
                 padding: '10px 14px',
                 borderRadius: m.role === 'user' ? '14px 14px 4px 14px' : '14px 14px 14px 4px',
                 background: m.role === 'user'
-                  ? 'rgba(0,232,122,0.10)'
-                  : m.error ? 'rgba(239,68,68,0.08)' : 'var(--bg-elevated)',
-                border: `1px solid ${m.role === 'user' ? 'rgba(0,232,122,0.25)' : m.error ? 'rgba(239,68,68,0.25)' : 'var(--border)'}`,
+                  ? 'var(--accent-muted)'
+                  : m.error ? '#fef2f2' : 'var(--bg-elevated)',
+                border: `1px solid ${m.role === 'user' ? 'rgba(79,70,229,0.20)' : m.error ? '#fecaca' : 'var(--border)'}`,
                 fontSize: 13, lineHeight: 1.65,
                 whiteSpace: 'pre-wrap',
-                color: m.error ? '#fca5a5' : 'var(--text-primary)',
+                color: m.error ? '#b91c1c' : 'var(--text-primary)',
               }}>
                 {m.content}
               </div>
@@ -244,7 +253,7 @@ export default function Playground() {
                   <AlertTriangle size={13} style={{ display: 'inline', marginRight: 5 }} />Annotations
                 </div>
                 {lastMeta.annotations.map((a, i) => (
-                  <div key={i} style={{ fontSize: 11, color: '#fcd34d', marginBottom: 6, padding: '6px 10px', background: 'rgba(245,158,11,0.06)', borderRadius: 6, borderLeft: '3px solid #f59e0b' }}>
+                  <div key={i} style={{ fontSize: 11, color: '#92400e', marginBottom: 6, padding: '6px 10px', background: '#fffbeb', borderRadius: 6, borderLeft: '3px solid #f59e0b' }}>
                     {a}
                   </div>
                 ))}

@@ -25,6 +25,7 @@ from fast_checks.confidence import confidence_signals
 from fast_checks.impact_rescore import rescore_impact
 from policy.engine import evaluate_policy
 from responsibility.redactor import redact_text
+from responsibility.lineage import check_data_lineage
 from telemetry.event_store import store_event, update_event
 
 logger = logging.getLogger("controlplane.routes")
@@ -98,6 +99,7 @@ async def chat_completions(req: ChatCompletionRequest, raw_request: Request):
             },
         )
 
+
     # ------------------------------------------------------------------ #
     # FORWARD to LLM
     # ------------------------------------------------------------------ #
@@ -148,9 +150,19 @@ async def chat_completions(req: ChatCompletionRequest, raw_request: Request):
         f"[{request_id}] Fast checks | "
         f"pii={tier1_results['pii_detected']} | "
         f"credentials={tier1_results['credentials_detected']} | "
-        f"toxicity={tier2_results['toxicity_score']:.2f} | "
         f"impact={impact_prelim}→{impact_rescored}"
     )
+
+    # ------------------------------------------------------------------ #
+    # DATA LINEAGE CHECK
+    # ------------------------------------------------------------------ #
+    lineage_result = check_data_lineage(user_content, llm_text, input_pii)
+    if lineage_result["leaked"]:
+        logger.warning(
+            f"[{request_id}] Data lineage: LEAKAGE | "
+            f"severity={lineage_result['severity']} | "
+            f"items={len(lineage_result['leaked_items'])}"
+        )
 
     # ------------------------------------------------------------------ #
     # POLICY DECISION (inline)
@@ -161,6 +173,7 @@ async def chat_completions(req: ChatCompletionRequest, raw_request: Request):
         impact=impact_rescored,
         application_id=cp_config.application_id,
         actual_cost=actual_cost,
+        lineage=lineage_result,
     )
 
     # Apply redaction if needed
@@ -184,9 +197,6 @@ async def chat_completions(req: ChatCompletionRequest, raw_request: Request):
         "impact_preliminary": impact_prelim,
         "impact_rescored": impact_rescored,
         "tier1_pii": tier1_results,
-        "tier2_toxicity": tier2_results["toxicity_score"],
-        "tier2_safety": tier2_results["safety_score"],
-        "tier2_anomaly": tier2_results.get("anomaly", {}),
         "input_tokens": input_tokens,
         "output_tokens": output_tokens,
         "actual_cost": actual_cost,
@@ -196,6 +206,7 @@ async def chat_completions(req: ChatCompletionRequest, raw_request: Request):
         "input_pii": input_pii,
         "injection_score": injection["score"],
         "confidence_score": confidence["score"],
+        "lineage": lineage_result,
         "deep_check_status": "pending",
     }
     event_id = store_event(event_data)
@@ -238,8 +249,6 @@ async def chat_completions(req: ChatCompletionRequest, raw_request: Request):
             "fast_checks": {
                 "pii_detected": tier1_results["pii_detected"],
                 "credentials_detected": tier1_results["credentials_detected"],
-                "toxicity": tier2_results["toxicity_score"],
-                "safety": tier2_results["safety_score"],
                 "topic_drift": tier2_results.get("topic_drift", 0),
                 "confidence": confidence["score"],
                 "injection_score": injection["score"],

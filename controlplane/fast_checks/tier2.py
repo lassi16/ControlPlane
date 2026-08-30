@@ -1,13 +1,5 @@
 """
-Fast Check Tier 2 — Toxicity, Safety, Topic Drift, NER PII
-
-Toxicity uses a two-tier approach:
-  Tier A (inline, <1ms): Comprehensive keyword classifier — covers 100+ patterns
-           across 6 categories: hate, threat, violence, sexual, self-harm, harassment
-  Tier B (async, accurate): Groq LLM toxicity verifier — called in background
-           for borderline scores (0.1–0.6) to reduce false positives/negatives
-
-In production with GPU: swap _keyword_toxicity() for unitary/toxic-bert.
+Fast Check Tier 2 — Topic Drift, NER PII
 """
 import re
 import logging
@@ -102,22 +94,15 @@ STRONG_ASSERTION_PHRASES = [
 def tier2_check(response_text: str, query_text: str = "") -> Dict[str, Any]:
     """
     Tier 2 checks on LLM response:
-    - Multi-category toxicity scoring
-    - Safety risk detection
     - Topic drift
     - NER PII (heuristic)
     """
     text_lower = response_text.lower()
 
-    tox_result  = _keyword_toxicity(text_lower)
-    safety_score = _safety_risk_score(text_lower)
     topic_drift  = _estimate_topic_drift(query_text, response_text) if query_text else 0.0
     ner_entities = _heuristic_ner(response_text)
 
     return {
-        "toxicity_score":      round(tox_result["score"], 3),
-        "toxicity_categories": tox_result["categories"],
-        "safety_score":        round(safety_score, 3),
         "topic_drift":         round(topic_drift, 3),
         "ner_entities":        ner_entities,
         "ner_pii_detected":    len(ner_entities) > 0,

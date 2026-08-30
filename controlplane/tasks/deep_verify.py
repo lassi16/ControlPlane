@@ -7,6 +7,8 @@ from typing import Any, Dict, List, Optional
 
 from deep_checks.claim_extractor import extract_claims
 from deep_checks.evidence_retriever import retrieve_evidence, score_evidence_quality
+from deep_checks.evidence_integrity import scan_all_evidence
+from deep_checks.math_verifier import verify_math_claim
 from deep_checks.nli_classifier import run_nli
 from deep_checks.risk_model import compute_risk_score
 from telemetry.event_store import update_event
@@ -46,6 +48,22 @@ def _run_deep_verify(event_id: str, response_text: str, query_text: str, query_l
             if claim["status"] == "NOT_VERIFIABLE":
                 continue
 
+            # Math claims go to deterministic verifier (no LLM needed)
+            if claim["type"] in ("numerical", "mathematical"):
+                math_result = verify_math_claim(claim["text"])
+                if math_result["status"] != "NOT_VERIFIABLE":
+                    claim["status"] = math_result["status"]
+                    claim["nli_result"] = math_result["status"]
+                    claim["nli_confidence"] = math_result["confidence"]
+                    claim["evidence"] = [{
+                        "source_url": "internal://math_verifier",
+                        "title": "Deterministic Math Verification",
+                        "snippet": f"{math_result['expression']} = {math_result['computed_result']} (claimed: {math_result['claimed_result']})",
+                        "authority": 1.0,
+                        "method": math_result["method"],
+                    }]
+                    continue
+
             evidence_list = retrieve_evidence(claim["text"], claim["type"])
 
             # Score evidence quality
@@ -54,12 +72,18 @@ def _run_deep_verify(event_id: str, response_text: str, query_text: str, query_l
                 quality = score_evidence_quality(ev, claim["text"], query_labels)
                 scored_evidence.append({**ev, "quality_score": quality})
 
+            # Scan evidence integrity (adversarial defence)
+            scored_evidence = scan_all_evidence(scored_evidence)
+
+            # Filter out unsafe evidence
+            safe_evidence = [e for e in scored_evidence if e.get("integrity", {}).get("safe", True)]
+
             # Sort by quality, take best
-            scored_evidence.sort(key=lambda x: x.get("quality_score", 0), reverse=True)
-            claim["evidence"] = scored_evidence
+            safe_evidence.sort(key=lambda x: x.get("quality_score", 0), reverse=True)
+            claim["evidence"] = safe_evidence
 
             # Run NLI
-            snippets = [e["snippet"] for e in scored_evidence if e.get("snippet")]
+            snippets = [e["snippet"] for e in safe_evidence if e.get("snippet")]
             if snippets:
                 nli_result = run_nli(claim["text"], snippets)
                 claim["status"] = nli_result["status"]
@@ -95,7 +119,7 @@ def _run_deep_verify(event_id: str, response_text: str, query_text: str, query_l
 
 
 def _check_retroactive_action(event_id: str, risk_result: Dict, claims: List[Dict]):
-    """If deep check reveals high risk, trigger retroactive alerts."""
+    """If deep check reveals high risk, trigger retroactive alerts and queue for review."""
     contradicted = [c for c in claims if c.get("status") == "CONTRADICTED"]
     if risk_result["risk_score"] > 0.5 or len(contradicted) > 0:
         update_event(event_id, {
@@ -106,6 +130,19 @@ def _check_retroactive_action(event_id: str, risk_result: Dict, claims: List[Dic
             f"RETROACTIVE ALERT | event_id={event_id} | "
             f"contradicted={len(contradicted)} | risk={risk_result['risk_score']:.2f}"
         )
+
+    # Route to human review queue
+    try:
+        from human_review.queue import enqueue_for_review
+        enqueue_for_review(
+            event_id=event_id,
+            risk_score=risk_result["risk_score"],
+            detector_confidence=risk_result["detector_confidence"],
+            impact="medium",  # Could be passed from event data
+            claims=claims,
+        )
+    except Exception as e:
+        logger.warning(f"Review queue failed: {e}")
 
 
 if CELERY_AVAILABLE:

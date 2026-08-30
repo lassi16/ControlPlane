@@ -1,10 +1,17 @@
 import { useEffect, useState } from 'react'
 import { getEvents } from '../api'
 import { fmtCost, fmtPct, fmtTs, truncate } from '../utils'
-import { Search, Filter } from 'lucide-react'
+import { Search, AlertTriangle } from 'lucide-react'
 
 const ACTIONS = ['', 'allow', 'annotate', 'warn', 'redact', 'block', 'escalate']
 const IMPACTS  = ['', 'low', 'medium', 'high', 'critical']
+
+function needsReview(ev) {
+  return ev.policy_action === 'block' ||
+         ev.policy_action === 'escalate' ||
+         (ev.risk_score || 0) > 0.5 ||
+         ev.policy_action === 'redact'
+}
 
 export default function EventLog({ onEventClick, filter }) {
   const [events, setEvents]   = useState([])
@@ -12,6 +19,7 @@ export default function EventLog({ onEventClick, filter }) {
   const [action, setAction]   = useState('')
   const [impact, setImpact]   = useState('')
   const [search, setSearch]   = useState('')
+  const [reviewOnly, setReviewOnly] = useState(false)
   const [page, setPage]       = useState(0)
   const PAGE = 30
 
@@ -25,10 +33,11 @@ export default function EventLog({ onEventClick, filter }) {
       .finally(() => setLoading(false))
   }, [action])
 
-  // Client-side filter for search + impact + pii filter
+  // Client-side filter for search + impact + pii filter + review filter
   const filtered = events.filter(ev => {
     if (filter === 'pii' && !ev.tier1_pii?.pii_detected) return false
     if (impact && ev.impact_rescored !== impact) return false
+    if (reviewOnly && !needsReview(ev)) return false
     if (search) {
       const q = search.toLowerCase()
       return (ev.user_query || '').toLowerCase().includes(q) ||
@@ -38,13 +47,14 @@ export default function EventLog({ onEventClick, filter }) {
     return true
   })
 
+  const reviewCount = events.filter(needsReview).length
   const paginated = filtered.slice(page * PAGE, (page + 1) * PAGE)
   const totalPages = Math.ceil(filtered.length / PAGE)
 
   return (
     <div>
       {/* Filters */}
-      <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
         <div style={{ position: 'relative', flex: 1, minWidth: 200 }}>
           <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
           <input
@@ -66,6 +76,14 @@ export default function EventLog({ onEventClick, filter }) {
           style={{ padding: '8px 12px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', color: 'var(--text-primary)', fontSize: 13 }}>
           {IMPACTS.map(i => <option key={i} value={i}>{i || 'All Impacts'}</option>)}
         </select>
+        <button
+          className={`btn ${reviewOnly ? 'btn-danger' : 'btn-ghost'}`}
+          onClick={() => { setReviewOnly(!reviewOnly); setPage(0) }}
+          style={{ fontSize: 12, padding: '7px 12px', gap: 5 }}
+        >
+          <AlertTriangle size={13} />
+          Needs Review ({reviewCount})
+        </button>
         <div style={{ fontSize: 12, color: 'var(--text-muted)', alignSelf: 'center' }}>
           {filtered.length} events
         </div>
@@ -84,14 +102,16 @@ export default function EventLog({ onEventClick, filter }) {
                 <th>Action</th>
                 <th>Risk</th>
                 <th>Cost</th>
-                <th>Deep</th>
+                <th>Status</th>
               </tr>
             </thead>
             <tbody>
               {paginated.length === 0 ? (
                 <tr><td colSpan={9} style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>No events match filters</td></tr>
               ) : paginated.map(ev => (
-                <tr key={ev.id} onClick={() => onEventClick(ev)}>
+                <tr key={ev.id} onClick={() => onEventClick(ev)} style={{
+                  borderLeft: needsReview(ev) ? '3px solid #ef4444' : '3px solid transparent',
+                }}>
                   <td className="mono text-muted" style={{ fontSize: 11 }}>{fmtTs(ev.timestamp)}</td>
                   <td><span style={{ fontSize: 11, background: 'var(--bg-elevated)', padding: '2px 7px', borderRadius: 4 }}>{ev.application_id}</span></td>
                   <td style={{ maxWidth: 240 }}>{truncate(ev.user_query, 60)}</td>
@@ -115,10 +135,18 @@ export default function EventLog({ onEventClick, filter }) {
                   </td>
                   <td className="mono" style={{ fontSize: 11 }}>{fmtCost(ev.actual_cost)}</td>
                   <td>
-                    <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4,
-                      background: ev.deep_check_status === 'complete' ? 'rgba(16,185,129,0.1)' : 'rgba(75,85,99,0.15)',
-                      color: ev.deep_check_status === 'complete' ? '#10b981' : 'var(--text-muted)'
-                    }}>{ev.deep_check_status}</span>
+                    {needsReview(ev) ? (
+                      <span style={{
+                        fontSize: 10, padding: '3px 8px', borderRadius: 99, fontWeight: 600,
+                        background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca',
+                      }}>REVIEW</span>
+                    ) : (
+                      <span style={{
+                        fontSize: 10, padding: '3px 8px', borderRadius: 99,
+                        background: ev.deep_check_status === 'complete' ? 'rgba(16,185,129,0.1)' : 'rgba(75,85,99,0.15)',
+                        color: ev.deep_check_status === 'complete' ? '#10b981' : 'var(--text-muted)',
+                      }}>{ev.deep_check_status === 'complete' ? 'VERIFIED' : ev.deep_check_status}</span>
+                    )}
                   </td>
                 </tr>
               ))}

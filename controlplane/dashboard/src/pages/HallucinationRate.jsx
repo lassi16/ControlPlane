@@ -54,11 +54,11 @@ export default function HallucinationRate() {
         </div>
         <ResponsiveContainer width="100%" height={260}>
           <LineChart data={series} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="rgba(30,45,69,0.6)" />
+            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
             <XAxis dataKey="hour" tick={{ fill: '#4a5568', fontSize: 10 }} tickLine={false} axisLine={false} label={{ value: 'Hour', position: 'insideBottom', offset: -2, fill: '#4a5568', fontSize: 10 }} />
             <YAxis tickFormatter={v => `${(v * 100).toFixed(0)}%`} tick={{ fill: '#4a5568', fontSize: 10 }} tickLine={false} axisLine={false} />
-            <Tooltip formatter={v => fmtPct(v)} contentStyle={{ background: '#1a2234', border: '1px solid #1e2d45', borderRadius: 8, fontSize: 12 }} />
-            <Legend formatter={v => <span style={{ color: '#8b9ab5', fontSize: 11 }}>{v}</span>} />
+            <Tooltip formatter={v => fmtPct(v)} contentStyle={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 12, boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }} />
+            <Legend formatter={v => <span style={{ color: '#6b7280', fontSize: 11 }}>{v}</span>} />
             <ReferenceLine y={0.1} stroke="#ef444455" strokeDasharray="4 4" label={{ value: 'Target', fill: '#ef4444', fontSize: 10 }} />
             <Line type="monotone" dataKey="contradiction_rate" stroke="#ef4444" strokeWidth={2} dot={false} name="Contradiction Rate" />
             <Line type="monotone" dataKey="risk_score"         stroke="#f97316" strokeWidth={2} dot={false} name="Risk Score" strokeDasharray="4 2" />
@@ -82,7 +82,7 @@ export default function HallucinationRate() {
                 return (
                   <tr key={ev.id}>
                     <td style={{ maxWidth: 200, fontSize: 12 }}>{ev.user_query?.slice(0, 60)}…</td>
-                    <td style={{ maxWidth: 260, fontSize: 12, color: '#fca5a5' }}>{bad?.text?.slice(0, 80)}…</td>
+                    <td style={{ maxWidth: 260, fontSize: 12, color: '#dc2626' }}>{bad?.text?.slice(0, 80)}…</td>
                     <td><span style={{ color: '#ef4444', fontWeight: 700 }}>{fmtPct(ev.risk_score)}</span></td>
                     <td><span className={`badge badge-${ev.policy_action}`}>{ev.policy_action}</span></td>
                   </tr>

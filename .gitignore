@@ -46,3 +46,8 @@ desktop.ini
 .pytest_cache/
 htmlcov/
 .coverage
+
+# Demo / Presentation Scripts
+controlplane/presentation.html
+video_script.md
+teleprompter_script.md

@@ -425,7 +425,11 @@ def _knowledge_base_lookup(claim: str) -> List[Dict]:
 def _duckduckgo_search(claim: str) -> List[Dict]:
     """Real web search using DuckDuckGo — completely free, no API key."""
     try:
-        from ddgs import DDGS
+        try:
+            from duckduckgo_search import DDGS
+        except ImportError:
+            from ddgs import DDGS
+            
         results = []
         with DDGS() as ddgs_client:
             hits = ddgs_client.text(claim, max_results=3)

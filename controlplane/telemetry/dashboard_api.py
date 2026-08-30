@@ -149,3 +149,18 @@ async def alerts():
     """Active system alerts."""
     metrics = get_overview_metrics()
     return JSONResponse(content={"alerts": metrics.get("alerts", [])})
+
+
+@router.post("/review/{event_id}")
+async def submit_review(event_id: str, body: dict):
+    """Submit a human reviewer decision on a queued event."""
+    from human_review.queue import submit_review as do_review
+
+    decision = body.get("decision", "")
+    notes = body.get("notes", "")
+
+    if decision not in ("correct", "incorrect", "uncertain"):
+        raise HTTPException(status_code=400, detail="decision must be: correct, incorrect, or uncertain")
+
+    result = do_review(event_id, decision, notes)
+    return JSONResponse(content=result)

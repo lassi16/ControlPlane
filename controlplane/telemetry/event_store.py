@@ -17,6 +17,7 @@ from telemetry.db import (
     db_count_events, db_get_event, db_get_events,
     db_store_event, db_update_event, init_db,
 )
+from telemetry.baselines import compute_cost_baseline, detect_fleet_trends
 
 logger = logging.getLogger("controlplane.event_store")
 
@@ -43,7 +44,12 @@ def _ensure_db():
 def _run(coro):
     """Run an async coroutine from sync code safely."""
     try:
-        loop = asyncio.get_event_loop()
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            # No event loop in this thread (e.g., _FakeTask thread)
+            return asyncio.run(coro)
+
         if loop.is_running():
             import concurrent.futures
             with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
@@ -131,6 +137,11 @@ def get_overview_metrics() -> Dict[str, Any]:
 
     alerts     = _get_active_alerts(all_events)
     time_series = _compute_time_series(all_events)
+    cost_baseline = compute_cost_baseline(all_events)
+    fleet_trends = detect_fleet_trends(all_events)
+
+    # Merge fleet trend alerts with basic alerts
+    all_alerts = alerts + fleet_trends
 
     return {
         "total_requests":       total,
@@ -144,10 +155,11 @@ def get_overview_metrics() -> Dict[str, Any]:
         "hallucination_rate":   round(hallucination_rate, 3),
         "pii_incidents":        pii_incidents,
         "impact_distribution":  impact_dist,
-        "alerts":               alerts,
+        "alerts":               all_alerts,
         "time_series":          time_series,
         "deep_checks_complete": len(deep_done),
         "deep_checks_pending":  sum(1 for e in all_events if e.get("deep_check_status") == "pending"),
+        "cost_baseline":        cost_baseline,
     }
 
 

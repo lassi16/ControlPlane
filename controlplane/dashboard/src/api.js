@@ -77,4 +77,8 @@ export const sendChat = (messages, appId = 'demo', demoMode = false) =>
     controlplane: { application_id: appId, demo_mode: demoMode },
   }).then(r => r.data)
 
+// Review submission — NOT cached
+export const submitReview = (eventId, decision, notes = '') =>
+  api.post(`/api/dashboard/review/${eventId}`, { decision, notes }).then(r => r.data)
+
 export default api

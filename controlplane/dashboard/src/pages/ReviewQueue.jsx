@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { getEvents } from '../api'
+import { getEvents, submitReview } from '../api'
 import { fmtTs, truncate, fmtPct } from '../utils'
 import { Users, Check, X, HelpCircle } from 'lucide-react'
 
@@ -30,6 +30,8 @@ export default function ReviewQueue({ onEventClick }) {
 
   const resolve = (id, label) => {
     setResolved(prev => ({ ...prev, [id]: label }))
+    // Fire and forget — send to backend
+    submitReview(id, label).catch(() => {})
   }
 
   const stats = {
@@ -91,7 +93,7 @@ export default function ReviewQueue({ onEventClick }) {
                       <strong>Q:</strong> {truncate(item.user_query, 100)}
                     </div>
                     {(item.claims || []).filter(c => c.status === 'CONTRADICTED').map((c, i) => (
-                      <div key={i} style={{ fontSize: 12, color: '#fca5a5', marginTop: 4 }}>
+                      <div key={i} style={{ fontSize: 12, color: '#dc2626', marginTop: 4 }}>
                         ⚠ Contradicted: {truncate(c.text, 90)}
                       </div>
                     ))}

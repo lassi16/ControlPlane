@@ -55,7 +55,13 @@ For each claim, output a JSON array with objects having:
 - "type": one of "factual_assertion", "numerical", "causal", "recommendation", "opinion"
 - "verifiable": true or false
 
-Only include claims that assert facts. Skip greetings, questions, and filler sentences.
+CRITICAL RULES:
+1. Only include claims that assert verifiable facts about the world.
+2. EXCLUDE conversational filler (e.g., "I can help you with that", "Here is the information").
+3. EXCLUDE AI meta-commentary (e.g., "Based on my training data", "As an AI").
+4. EXCLUDE safety refusals or inability to answer (e.g., "I cannot fulfill this request").
+5. If the entire response is just filler or a refusal, return an empty array `[]`.
+
 Respond with ONLY a valid JSON array, nothing else.
 
 AI Response:
@@ -121,8 +127,20 @@ def _extract_via_regex(text: str) -> List[Dict[str, Any]]:
     return claims
 
 
+FILLER_MARKERS = [
+    "i can help you", "here is the information", "based on my training data",
+    "as an ai", "i cannot fulfill", "i'm sorry, but", "let me know if you need",
+    "here is a", "i am programmed to", "i'm unable to", "certainly!", "sure,",
+    "i'll address systematically", "i'll address that"
+]
+
 def _classify_sentence(sentence: str) -> str:
     s = sentence.lower()
+    
+    # Filter out common AI conversational filler and refusals
+    if any(m in s for m in FILLER_MARKERS):
+        return "skip"
+        
     if any(m in s for m in OPINION_MARKERS):
         return "opinion"
     if NUMERICAL_MARKERS.search(sentence):

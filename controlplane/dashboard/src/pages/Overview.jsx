@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts'
-import { AlertTriangle, Shield, DollarSign, Activity, Zap, TrendingUp, Eye, Clock } from 'lucide-react'
+import { AlertTriangle, Shield, DollarSign, Activity, Zap, Eye, Clock } from 'lucide-react'
 import { getOverview, getEvents } from '../api'
 import { ACTION_COLORS, IMPACT_COLORS, fmtCost, fmtPct, fmtTs, truncate } from '../utils'
 
@@ -72,12 +72,14 @@ export default function Overview({ onEventClick }) {
     {
       label: 'Total Cost', value: fmtCost(data.total_cost_usd),
       icon: DollarSign, color: '#10b981', gradient: 'linear-gradient(90deg,#10b981,#059669)',
-      delta: `avg ${fmtCost(data.avg_cost_per_request)}/req`,
+      delta: data.cost_baseline?.sufficient_data
+        ? `P90: ${fmtCost(data.cost_baseline.cost.p90)}/req`
+        : `avg ${fmtCost(data.avg_cost_per_request)}/req`,
     },
     {
-      label: 'Deep Checks Done', value: data.deep_checks_complete.toLocaleString(),
-      icon: TrendingUp, color: '#8b5cf6', gradient: 'linear-gradient(90deg,#8b5cf6,#7c3aed)',
-      delta: `${data.deep_checks_pending} pending`,
+      label: 'Needs Review', value: (data.blocked + data.escalated).toLocaleString(),
+      icon: AlertTriangle, color: '#8b5cf6', gradient: 'linear-gradient(90deg,#8b5cf6,#7c3aed)',
+      delta: `${data.deep_checks_pending || 0} deep checks pending`,
     },
   ]
 
@@ -124,7 +126,7 @@ export default function Overview({ onEventClick }) {
               </defs>
               <XAxis dataKey="hour" tick={{ fill: '#4a5568', fontSize: 10 }} tickLine={false} axisLine={false} />
               <YAxis tick={{ fill: '#4a5568', fontSize: 10 }} tickLine={false} axisLine={false} />
-              <Tooltip contentStyle={{ background: '#1a2234', border: '1px solid #1e2d45', borderRadius: 8, fontSize: 12 }} />
+<Tooltip contentStyle={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 12, boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }} />
               <Area type="monotone" dataKey="requests" stroke="#3b82f6" fill="url(#gReq)" strokeWidth={2} name="Requests" />
               <Area type="monotone" dataKey="blocked"  stroke="#ef4444" fill="url(#gBlk)" strokeWidth={2} name="Blocked" />
             </AreaChart>
@@ -139,8 +141,8 @@ export default function Overview({ onEventClick }) {
               <Pie data={actionDist} cx="50%" cy="50%" innerRadius={55} outerRadius={85} dataKey="value" paddingAngle={2}>
                 {actionDist.map((entry, i) => <Cell key={i} fill={entry.color} />)}
               </Pie>
-              <Tooltip contentStyle={{ background: '#1a2234', border: '1px solid #1e2d45', borderRadius: 8, fontSize: 12 }} />
-              <Legend formatter={(v) => <span style={{ color: '#8b9ab5', fontSize: 11 }}>{v}</span>} />
+              <Tooltip contentStyle={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 12, boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }} />
+              <Legend formatter={(v) => <span style={{ color: '#6b7280', fontSize: 11 }}>{v}</span>} />
             </PieChart>
           </ResponsiveContainer>
         </div>
